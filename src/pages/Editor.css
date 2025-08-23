@@ -1,0 +1,91 @@
+.editor-container {
+  width: 100%;
+  max-width: 960px;
+  margin: 40px auto;
+  padding: 24px;
+  border-radius: 12px;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.editor-title {
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.project-controls,
+.file-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+select,
+input {
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  flex: 1;
+  min-width: 200px;
+}
+
+button {
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+.editor-textarea {
+  width: 100%;
+  height: 320px;
+  font-size: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background-color: var(--textarea-bg);
+  color: var(--text-color);
+  font-family: monospace;
+  margin-top: 20px;
+  box-sizing: border-box;
+}
+
+.editor-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.output-label {
+  margin-top: 30px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.output-box {
+  background-color: #f4f4f4;
+  padding: 16px;
+  border-radius: 6px;
+  min-height: 100px;
+  white-space: pre-wrap;
+  margin-top: 10px;
+  font-family: monospace;
+  font-size: 15px;
+}
