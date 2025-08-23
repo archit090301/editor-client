@@ -15,7 +15,7 @@ const isLocal = window.location.hostname === "localhost" || window.location.host
 
 const BASE_URL = isLocal
   ? "http://localhost:5000"
-  : "https://editor-server-7olv.onrender.com";
+  : "https://editor-server-8ga0.onrender.com/";
 
 axios.defaults.baseURL = BASE_URL;
 axios.defaults.withCredentials = true;
