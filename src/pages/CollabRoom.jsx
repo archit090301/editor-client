@@ -8,10 +8,13 @@ const isLocal = window.location.hostname === "localhost" || window.location.host
 
 const BACKEND_URL = isLocal
   ? "http://localhost:5000"
-  : "https://editor-server.onrender.com";
+  : "https://editor-server-te21.onrender.com";
 
-// Initialize socket dynamically
-const socket = io(BACKEND_URL, { withCredentials: true });
+// Initialize socket
+const socket = io(BACKEND_URL, {
+  withCredentials: true,
+  transports: ["websocket"],
+});
 
 
 const languageSamples = {
