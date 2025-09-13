@@ -1,0 +1,42 @@
+.sidebar {
+  width: 250px;
+  border-right: 1px solid #ccc;
+  padding: 16px;
+  background-color: #f9f9f9;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.project-list {
+  margin-top: 12px;
+}
+
+.project-item {
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.project-item:hover {
+  background-color: #e6f0ff;
+}
+
+.create-project {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.create-project input {
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+.create-project button {
+  padding: 8px;
+  background-color: #007bff;
+  border: none;
+  color: white;
+  cursor: pointer;
+  border-radius: 4px;
+}

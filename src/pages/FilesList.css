@@ -1,0 +1,40 @@
+.files-container {
+  padding: 16px;
+  border-top: 1px solid #ccc;
+}
+
+.file-item {
+  padding: 8px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.file-item:hover {
+  background-color: #f0f0f0;
+}
+
+.file-item.active {
+  background-color: #d0e7ff;
+  font-weight: bold;
+}
+
+.create-file {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.create-file input {
+  padding: 8px;
+  margin-bottom: 6px;
+}
+
+.create-file button {
+  padding: 8px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
