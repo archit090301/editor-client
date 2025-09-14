@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useTheme } from '../ThemeContext';
 import { buttonStyle } from '../styles/buttonStyles';
@@ -10,6 +10,14 @@ function Login({ onLoginSuccess, onForgotPassword }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Persisted user state from localStorage
+  useEffect(() => {
+    const storedUser = localStorage.getItem('workspace_user');
+    if (storedUser) {
+      onLoginSuccess(JSON.parse(storedUser));
+    }
+  }, []);
 
   // Handle input changes
   const handleChange = (e) => {
@@ -32,9 +40,15 @@ function Login({ onLoginSuccess, onForgotPassword }) {
       const res = await axios.post(
         '/api/login',
         formData,
-        { withCredentials: true }
+        { withCredentials: true } // ensures cookie is stored
       );
+
       const user = res.data.user;
+
+      // ✅ Store user in localStorage for UI persistence
+      localStorage.setItem('workspace_user', JSON.stringify(user));
+
+      // Update app state
       onLoginSuccess(user);
     } catch (err) {
       if (err.response) {
