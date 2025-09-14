@@ -18,9 +18,15 @@ function Editor() {
   const [output, setOutput] = useState('');
   const [newProjectName, setNewProjectName] = useState('');
   const [newFileName, setNewFileName] = useState('');
-  const [languageId, setLanguageId] = useState(71); // Default: Python
+  const [languageId, setLanguageId] = useState(71);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [fileAnimation, setFileAnimation] = useState('');
+  const [projectAnimation, setProjectAnimation] = useState('');
   const fileInputRef = useRef();
+  const editorRef = useRef();
+  const codeMirrorRef = useRef();
 
   const languageMap = { 71: 'py', 63: 'js', 54: 'cpp', 62: 'java' };
 
@@ -34,35 +40,58 @@ function Editor() {
   };
 
   const fetchFiles = async (projectId) => {
-    const res = await axios.get(`/api/projects/${projectId}/files`);
-    setFiles(res.data);
+    setIsLoading(true);
+    try {
+      const res = await axios.get(`/api/projects/${projectId}/files`);
+      setFiles(res.data);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const fetchCode = async (fileId) => {
-    const res = await axios.get(`/api/files/${fileId}`);
-    setCode(res.data.content);
+    setIsLoading(true);
+    try {
+      const res = await axios.get(`/api/files/${fileId}`);
+      setCode(res.data.content);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleProjectSelect = async (project) => {
-    setSelectedProject(project);
-    setSelectedFile(null);
-    setCode('');
-    await fetchFiles(project.id);
+    setProjectAnimation('fade-out');
+    
+    setTimeout(async () => {
+      setSelectedProject(project);
+      setSelectedFile(null);
+      setCode('');
+      await fetchFiles(project.id);
+      setProjectAnimation('fade-in');
+    }, 300);
   };
 
   const handleFileSelect = async (file) => {
-    setSelectedFile(file);
-    await fetchCode(file.id);
+    setFileAnimation('slide-out');
+    
+    setTimeout(async () => {
+      setSelectedFile(file);
+      await fetchCode(file.id);
+      setFileAnimation('slide-in');
+    }, 300);
   };
 
   const handleRun = async () => {
     try {
-      setOutput('Running...');
+      setOutput('');
+      setIsLoading(true);
       const res = await axios.post('/api/run-code', { code, languageId });
       const { stdout, stderr } = res.data;
       setOutput(stdout || `Error:\n${stderr}` || 'Execution finished with no output.');
     } catch {
       setOutput('Error executing code.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -108,13 +137,11 @@ function Editor() {
   const handleSave = async () => {
     if (selectedFile) {
       await axios.put(`/api/files/${selectedFile.id}`, { content: code });
-      // Show a temporary success message instead of alert
       const saveBtn = document.querySelector('.save-btn');
       if (saveBtn) {
-        const originalText = saveBtn.textContent;
-        saveBtn.textContent = '✓ Saved';
+        saveBtn.classList.add('saved-animation');
         setTimeout(() => {
-          saveBtn.textContent = originalText;
+          saveBtn.classList.remove('saved-animation');
         }, 2000);
       }
     }
@@ -141,13 +168,11 @@ function Editor() {
       setCode(event.target.result);
       if (selectedFile) {
         await axios.put(`/api/files/${selectedFile.id}`, { content: event.target.result });
-        // Show a temporary success message instead of alert
         const importBtn = document.querySelector('.import-btn');
         if (importBtn) {
-          const originalText = importBtn.textContent;
-          importBtn.textContent = '✓ Imported';
+          importBtn.classList.add('imported-animation');
           setTimeout(() => {
-            importBtn.textContent = originalText;
+            importBtn.classList.remove('imported-animation');
           }, 2000);
         }
       }
@@ -183,10 +208,34 @@ function Editor() {
     }
   };
 
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      editorRef.current.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+      setIsFullScreen(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+        setIsFullScreen(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullScreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
   return (
     <div className={`editor-app ${theme}`}>
-      {/* Sidebar with toggle */}
-      <div className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
+      <div className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${isFullScreen ? 'hidden' : ''}`}>
         <button 
           className="sidebar-toggle"
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -210,7 +259,7 @@ function Editor() {
                 />
                 <button 
                   onClick={handleCreateProject} 
-                  className="icon-btn"
+                  className="icon-btn add-btn"
                   disabled={!newProjectName}
                   title="Create new project"
                 >
@@ -221,7 +270,7 @@ function Editor() {
                 {projects.map(project => (
                   <div 
                     key={project.id} 
-                    className={`list-item ${selectedProject?.id === project.id ? 'active' : ''}`}
+                    className={`list-item ${selectedProject?.id === project.id ? 'active' : ''} ${projectAnimation}`}
                   >
                     <span 
                       onClick={() => handleProjectSelect(project)}
@@ -259,7 +308,7 @@ function Editor() {
                   />
                   <button 
                     onClick={handleCreateFile} 
-                    className="icon-btn"
+                    className="icon-btn add-btn"
                     disabled={!newFileName}
                     title="Create new file"
                   >
@@ -270,7 +319,7 @@ function Editor() {
                   {files.map(file => (
                     <div 
                       key={file.id} 
-                      className={`list-item ${selectedFile?.id === file.id ? 'active' : ''}`}
+                      className={`list-item ${selectedFile?.id === file.id ? 'active' : ''} ${fileAnimation}`}
                     >
                       <span 
                         onClick={() => handleFileSelect(file)}
@@ -314,8 +363,7 @@ function Editor() {
         )}
       </div>
 
-      {/* Main Editor Area */}
-      <div className="editor-main">
+      <div className="editor-main" ref={editorRef}>
         <div className="editor-header">
           <h1>
             <span className="icon">🧑‍💻</span>
@@ -335,6 +383,16 @@ function Editor() {
             <button onClick={handleImportClick} className="btn import-btn" title="Import file">
               <span className="icon">📥</span> Import
             </button>
+            <button 
+              onClick={toggleFullScreen} 
+              className="btn" 
+              title={isFullScreen ? "Exit fullscreen" : "Enter fullscreen"}
+            >
+              <span className="icon">
+                {isFullScreen ? '📱' : '📺'}
+              </span>
+              {isFullScreen ? 'Exit Full' : 'Full Screen'}
+            </button>
             <input 
               type="file" 
               accept=".py,.txt,.js,.java,.cpp" 
@@ -346,12 +404,15 @@ function Editor() {
         </div>
 
         <div className="code-editor-container">
+          {isLoading && <div className="loading-overlay"><div className="spinner"></div></div>}
           <CodeMirror
             value={code}
             height="100%"
             theme={theme === 'dark' ? 'dark' : 'light'}
             extensions={[getLanguageExtension()]}
             onChange={setCode}
+            ref={codeMirrorRef}
+            className={fileAnimation}
           />
         </div>
 
@@ -367,7 +428,7 @@ function Editor() {
             </button>
           </div>
           <pre className="output-content">
-            {output || 'Output will appear here after code execution...'}
+            {isLoading ? <div className="loading-dots">Running<span>.</span><span>.</span><span>.</span></div> : output || 'Output will appear here after code execution...'}
           </pre>
         </div>
       </div>
