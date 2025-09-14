@@ -12,21 +12,17 @@ function Editor() {
   const { theme } = useTheme();
   const [projects, setProjects] = useState([]);
   const [files, setFiles] = useState([]);
-  const [selectedProject, setSelectedProject] = useState('');
-  const [selectedFile, setSelectedFile] = useState('');
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
   const [code, setCode] = useState('');
   const [output, setOutput] = useState('');
   const [newProjectName, setNewProjectName] = useState('');
   const [newFileName, setNewFileName] = useState('');
   const [languageId, setLanguageId] = useState(71); // Default: Python
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const fileInputRef = useRef();
 
-  const languageMap = {
-    71: 'py',
-    63: 'js',
-    54: 'cpp',
-    62: 'java'
-  };
+  const languageMap = { 71: 'py', 63: 'js', 54: 'cpp', 62: 'java' };
 
   useEffect(() => {
     fetchProjects();
@@ -47,18 +43,16 @@ function Editor() {
     setCode(res.data.content);
   };
 
-  const handleProjectSelect = (e) => {
-    const id = e.target.value;
-    setSelectedProject(id);
-    setSelectedFile('');
+  const handleProjectSelect = async (project) => {
+    setSelectedProject(project);
+    setSelectedFile(null);
     setCode('');
-    fetchFiles(id);
+    await fetchFiles(project.id);
   };
 
-  const handleFileSelect = (e) => {
-    const id = e.target.value;
-    setSelectedFile(id);
-    fetchCode(id);
+  const handleFileSelect = async (file) => {
+    setSelectedFile(file);
+    await fetchCode(file.id);
   };
 
   const handleRun = async () => {
@@ -73,14 +67,16 @@ function Editor() {
   };
 
   const handleCreateProject = async () => {
+    if (!newProjectName) return;
     await axios.post('/api/projects', { name: newProjectName });
     setNewProjectName('');
     fetchProjects();
   };
 
   const handleCreateFile = async () => {
-    let sampleCode = '';
+    if (!newFileName || !selectedProject) return;
 
+    let sampleCode = '';
     switch (languageId) {
       case 71:
         sampleCode = `# Sample Python program\ndef greet(name):\n    return f"Hello, {name}!"\n\nprint(greet("World"))`;
@@ -98,21 +94,29 @@ function Editor() {
         sampleCode = `// Sample code`;
     }
 
-    const res = await axios.post(`/api/projects/${selectedProject}/files`, {
+    const res = await axios.post(`/api/projects/${selectedProject.id}/files`, {
       name: newFileName,
       content: sampleCode
     });
 
     setNewFileName('');
-    fetchFiles(selectedProject);
-    setSelectedFile(res.data.fileId);
+    fetchFiles(selectedProject.id);
+    setSelectedFile({ id: res.data.fileId, name: newFileName });
     setCode(sampleCode);
   };
 
   const handleSave = async () => {
     if (selectedFile) {
-      await axios.put(`/api/files/${selectedFile}`, { content: code });
-      alert('Saved!');
+      await axios.put(`/api/files/${selectedFile.id}`, { content: code });
+      // Show a temporary success message instead of alert
+      const saveBtn = document.querySelector('.save-btn');
+      if (saveBtn) {
+        const originalText = saveBtn.textContent;
+        saveBtn.textContent = '✓ Saved';
+        setTimeout(() => {
+          saveBtn.textContent = originalText;
+        }, 2000);
+      }
     }
   };
 
@@ -121,7 +125,7 @@ function Editor() {
     const element = document.createElement('a');
     const file = new Blob([code], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
-    element.download = `${selectedFile || 'untitled'}.${ext}`;
+    element.download = `${selectedFile?.name || 'untitled'}.${ext}`;
     document.body.appendChild(element);
     element.click();
   };
@@ -136,8 +140,16 @@ function Editor() {
     reader.onload = async (event) => {
       setCode(event.target.result);
       if (selectedFile) {
-        await axios.put(`/api/files/${selectedFile}`, { content: event.target.result });
-        alert('File imported and saved!');
+        await axios.put(`/api/files/${selectedFile.id}`, { content: event.target.result });
+        // Show a temporary success message instead of alert
+        const importBtn = document.querySelector('.import-btn');
+        if (importBtn) {
+          const originalText = importBtn.textContent;
+          importBtn.textContent = '✓ Imported';
+          setTimeout(() => {
+            importBtn.textContent = originalText;
+          }, 2000);
+        }
       }
     };
     reader.readAsText(file);
@@ -145,105 +157,220 @@ function Editor() {
 
   const handleDeleteFile = async () => {
     if (!selectedFile || !window.confirm("Delete this file?")) return;
-    await axios.delete(`/api/files/${selectedFile}`);
-    setSelectedFile('');
+    await axios.delete(`/api/files/${selectedFile.id}`);
+    setSelectedFile(null);
     setCode('');
-    fetchFiles(selectedProject);
+    fetchFiles(selectedProject.id);
   };
 
   const handleDeleteProject = async () => {
     if (!selectedProject || !window.confirm("Delete this project and its files?")) return;
-    await axios.delete(`/api/projects/${selectedProject}`);
-    setSelectedProject('');
-    setSelectedFile('');
+    await axios.delete(`/api/projects/${selectedProject.id}`);
+    setSelectedProject(null);
+    setSelectedFile(null);
     setCode('');
     fetchProjects();
     setFiles([]);
   };
 
-  // pick correct language extension for CodeMirror
   const getLanguageExtension = () => {
     switch (languageId) {
-      case 71:
-        return python();
-      case 63:
-        return javascript();
-      case 62:
-        return java();
-      case 54:
-        return cpp();
-      default:
-        return [];
+      case 71: return python();
+      case 63: return javascript();
+      case 62: return java();
+      case 54: return cpp();
+      default: return [];
     }
   };
 
   return (
-    <div
-  className={`editor-container ${theme === 'dark' ? 'dark' : 'light'}`}
-  style={{
-    backgroundColor: theme === 'dark' ? '#1e1e1e' : '#fff',
-    color: theme === 'dark' ? '#eee' : '#000'
-  }}
->
+    <div className={`editor-app ${theme}`}>
+      {/* Sidebar with toggle */}
+      <div className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
+        <button 
+          className="sidebar-toggle"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+        >
+          {isCollapsed ? '→' : '←'}
+        </button>
+        
+        {!isCollapsed && (
+          <>
+            <div className="sidebar-section">
+              <h2>
+                <span className="icon">📁</span>
+                Projects
+              </h2>
+              <div className="input-group">
+                <input
+                  value={newProjectName} 
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder="New project name"
+                  onKeyPress={(e) => e.key === 'Enter' && handleCreateProject()}
+                />
+                <button 
+                  onClick={handleCreateProject} 
+                  className="icon-btn"
+                  disabled={!newProjectName}
+                  title="Create new project"
+                >
+                  +
+                </button>
+              </div>
+              <div className="scroll-container">
+                {projects.map(project => (
+                  <div 
+                    key={project.id} 
+                    className={`list-item ${selectedProject?.id === project.id ? 'active' : ''}`}
+                  >
+                    <span 
+                      onClick={() => handleProjectSelect(project)}
+                      className="item-label"
+                    >
+                      <span className="icon">📂</span>
+                      {project.name}
+                    </span>
+                    {selectedProject?.id === project.id && (
+                      <button 
+                        onClick={handleDeleteProject} 
+                        className="icon-btn danger"
+                        title="Delete project"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
 
-      <h1 className="editor-title">🧑‍💻 Workspace Code Editor</h1>
+            {selectedProject && (
+              <div className="sidebar-section">
+                <h3>
+                  <span className="icon">📄</span>
+                  Files in {selectedProject.name}
+                </h3>
+                <div className="input-group">
+                  <input
+                    value={newFileName} 
+                    onChange={(e) => setNewFileName(e.target.value)}
+                    placeholder="New file name"
+                    onKeyPress={(e) => e.key === 'Enter' && handleCreateFile()}
+                  />
+                  <button 
+                    onClick={handleCreateFile} 
+                    className="icon-btn"
+                    disabled={!newFileName}
+                    title="Create new file"
+                  >
+                    +
+                  </button>
+                </div>
+                <div className="scroll-container">
+                  {files.map(file => (
+                    <div 
+                      key={file.id} 
+                      className={`list-item ${selectedFile?.id === file.id ? 'active' : ''}`}
+                    >
+                      <span 
+                        onClick={() => handleFileSelect(file)}
+                        className="item-label"
+                      >
+                        <span className="icon">📝</span>
+                        {file.name}
+                      </span>
+                      {selectedFile?.id === file.id && (
+                        <button 
+                          onClick={handleDeleteFile} 
+                          className="icon-btn danger"
+                          title="Delete file"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-      <div className="project-controls">
-        <label>Select Language: </label>
-        <select value={languageId} onChange={(e) => setLanguageId(parseInt(e.target.value))}>
-          <option value={71}>Python</option>
-          <option value={63}>JavaScript (Node.js)</option>
-          <option value={54}>C++</option>
-          <option value={62}>Java</option>
-        </select>
+            <div className="sidebar-section">
+              <label>
+                <span className="icon">🌐</span>
+                Language:
+              </label>
+              <select 
+                value={languageId} 
+                onChange={(e) => setLanguageId(parseInt(e.target.value))}
+                className="language-select"
+              >
+                <option value={71}>Python</option>
+                <option value={63}>JavaScript</option>
+                <option value={54}>C++</option>
+                <option value={62}>Java</option>
+              </select>
+            </div>
+          </>
+        )}
       </div>
 
-      <div className="project-controls">
-        <select value={selectedProject} onChange={handleProjectSelect}>
-          <option value="">-- Select Project --</option>
-          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-        <input value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} placeholder="New Project Name" />
-        <button onClick={handleCreateProject}>Create Project</button>
-        {selectedProject && <button onClick={handleDeleteProject}>🗑️ Delete Project</button>}
-      </div>
-
-      {selectedProject && (
-        <div className="file-controls">
-          <select value={selectedFile} onChange={handleFileSelect}>
-            <option value="">-- Select File --</option>
-            {files.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-          </select>
-          <input value={newFileName} onChange={(e) => setNewFileName(e.target.value)} placeholder="New File Name" />
-          <button onClick={handleCreateFile}>Create File</button>
-          {selectedFile && <button onClick={handleDeleteFile}>🗑️ Delete File</button>}
+      {/* Main Editor Area */}
+      <div className="editor-main">
+        <div className="editor-header">
+          <h1>
+            <span className="icon">🧑‍💻</span>
+            Workspace Code Editor
+            {selectedFile && ` - ${selectedFile.name}`}
+          </h1>
+          <div className="editor-actions">
+            <button onClick={handleSave} className="btn save-btn" title="Save file">
+              <span className="icon">💾</span> Save
+            </button>
+            <button onClick={handleRun} className="btn run-btn" title="Run code">
+              <span className="icon">▶️</span> Run
+            </button>
+            <button onClick={handleExport} className="btn" title="Export file">
+              <span className="icon">📤</span> Export
+            </button>
+            <button onClick={handleImportClick} className="btn import-btn" title="Import file">
+              <span className="icon">📥</span> Import
+            </button>
+            <input 
+              type="file" 
+              accept=".py,.txt,.js,.java,.cpp" 
+              ref={fileInputRef} 
+              onChange={handleImport} 
+              style={{ display: 'none' }} 
+            />
+          </div>
         </div>
-      )}
 
-      {/* ✅ CodeMirror Editor replaces textarea */}
-      <CodeMirror
-        value={code}
-        height="400px"
-        theme={theme === 'dark' ? 'dark' : 'light'}
-        extensions={[getLanguageExtension()]}
-        onChange={(value) => setCode(value)}
-        style={{
-          border: '1px solid #555',
-          borderRadius: '8px',
-          marginTop: '10px'
-        }}
-      />
+        <div className="code-editor-container">
+          <CodeMirror
+            value={code}
+            height="100%"
+            theme={theme === 'dark' ? 'dark' : 'light'}
+            extensions={[getLanguageExtension()]}
+            onChange={setCode}
+          />
+        </div>
 
-      <div className="editor-buttons">
-        <button onClick={handleSave}>💾 Save</button>
-        <button onClick={handleRun}>▶️ Run</button>
-        <button onClick={handleExport}>📤 Export</button>
-        <button onClick={handleImportClick}>📥 Import</button>
-        <input type="file" accept=".py,.txt,.js,.java,.cpp" ref={fileInputRef} onChange={handleImport} style={{ display: 'none' }} />
+        <div className="output-container">
+          <div className="output-header">
+            <h3>Output</h3>
+            <button 
+              onClick={() => setOutput('')} 
+              className="icon-btn"
+              title="Clear output"
+            >
+              🗑️
+            </button>
+          </div>
+          <pre className="output-content">
+            {output || 'Output will appear here after code execution...'}
+          </pre>
+        </div>
       </div>
-
-      <h3 className="output-label">Output:</h3>
-      <pre className="output-box">{output}</pre>
     </div>
   );
 }
