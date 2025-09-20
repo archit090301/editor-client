@@ -11,13 +11,16 @@ function ProjectsSidebar({ onSelectProject }) {
   }, []);
 
   const fetchProjects = async () => {
-    try {
-      const res = await axios.get('/api/projects');
-      setProjects(res.data);
-    } catch (err) {
-      console.error('Error fetching projects:', err);
-    }
-  };
+  try {
+    const res = await axios.get('/api/projects', {
+      withCredentials: true,   // 👈 include cookie
+    });
+    setProjects(res.data);
+  } catch (err) {
+    console.error('Error fetching projects:', err);
+  }
+};
+
 
   const handleCreateProject = async () => {
     if (!newProjectName.trim()) return;
