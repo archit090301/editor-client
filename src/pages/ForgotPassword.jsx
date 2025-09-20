@@ -12,7 +12,7 @@ const ForgotPassword = ({ onBack }) => {
     setResetLink('');
 
     try {
-      const res = await axios.post('https://editor-server-qh9g.onrender.com/api/request-password-reset', { email }, { withCredentials: true });
+      const res = await axios.post('http://localhost:5000/api/request-password-reset', { email }, { withCredentials: true });
       setMessage(res.data.message);
       setResetLink(res.data.resetLink);
     } catch (err) {
